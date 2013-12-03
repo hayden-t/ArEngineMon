@@ -17,3 +17,6 @@ Engine coolant sensor is monitored via a unity gain buffer (voltage follower) ci
 Oil pressure sensor is monitored via a voltage divider to bring the engine's 11-17v down to under 5v so the arduino can read it.
 
 Menu system is provided by MENWIZ library and supports various sized lcd besides my current 16 x 2 character one.
+https://github.com/brunialti/MENWIZ
+
+Ive tried to write the code in a way that makes it expandable to more/different sensors.
