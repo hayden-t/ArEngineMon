@@ -1,3 +1,12 @@
+/*
+Copyright (C) 2013 Hayden Thring www.httech.com.au
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+version 2 as published by the Free Software Foundation.
+
+*/
+
 
 const int Version = 103;//change to force load default settings and save them to eeprom
 
