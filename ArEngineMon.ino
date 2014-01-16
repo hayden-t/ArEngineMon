@@ -8,7 +8,7 @@ version 2 as published by the Free Software Foundation.
 */
 
 
-const int Version = 103;//change to force load default settings and save them to eeprom
+const int Version = 104;//change to force load default settings and save them to eeprom
 
 #include <LCD.h>
 #include <LiquidCrystal.h>
@@ -16,8 +16,10 @@ const int Version = 103;//change to force load default settings and save them to
 #include <MENWIZ.h>
 #include <RunningAverage.h>
 #include <EEPROM.h>
+#include <Wire.h>
+#include <Adafruit_BMP085.h>
 
-
+Adafruit_BMP085 bmp;
 
 const int UP_BOTTON_PIN      = 3;
 const int DOWN_BOTTON_PIN    = 4;
@@ -60,6 +62,8 @@ int SENSOR3_ALARM = 90;
 float SENSOR3_VOLTAGE;
 boolean SENSOR3_ALERT = false;
 
+int BARO_ALT;
+
 const int SENSOR_INTERVAL = 1000;//delay between sensor reads
 
 int DEBUG_MODE = 0;//show raw sensor values instead of graph
@@ -82,7 +86,9 @@ void setup(){
 
   Serial.begin(9600);
   //Serial.println(sensorValue);
-
+  
+  bmp.begin();
+  
   _menu *r,*s1,*s2;
 
   int  mem;
@@ -156,6 +162,9 @@ void loop(){
   check_stats();
   menu.draw();
   
+  
+  //Serial.println(SENSOR1_VOLTAGE, 3);
+  //Serial.println(SENSOR1);
 }
 
 unsigned long lastRead = 0;
@@ -190,7 +199,7 @@ void read_stats(){
   if(SENSOR1_PERCENT > SENSOR1_RECORD && millis() > STARTUP_DELAY)SENSOR1_RECORD = SENSOR1_PERCENT;//store highest reading, after 5 sec startup delay
 //SENSOR1
 
-
+/*
 //SENSOR2
   // read the input on analog pin
   SENSOR2 = analogRead(SENSOR2_PIN);
@@ -207,6 +216,10 @@ void read_stats(){
   // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
   SENSOR3_VOLTAGE = SENSOR3 * (5.0 / 1023.0);
 //SENSOR3
+ */
+ 
+  BARO_ALT = bmp.readAltitude();
+ 
  
   lastRead = millis();
 
@@ -220,8 +233,8 @@ void check_stats(){
   if(SENSOR1_PERCENT >= SENSOR1_ALARM)SENSOR1_ALERT = true;
   else  SENSOR1_ALERT = false;
   
-  if(SENSOR2_VOLTAGE < SENSOR2_ALARM)SENSOR2_ALERT = true;
-  else  SENSOR2_ALERT = false;
+ // if(SENSOR2_VOLTAGE < SENSOR2_ALARM)SENSOR2_ALERT = true;
+ // else  SENSOR2_ALERT = false;
 
   if(SENSOR1_ALERT || SENSOR2_ALERT){
     led(ON);
@@ -251,17 +264,15 @@ void show_stats(){
 
   lcd.setCursor(0, 0);
 
+  lcd.print("Tmp: ");
   lcd.print(SENSOR1_PERCENT, 0);
-  lcd.print("% ");
+  lcd.print("/");
   lcd.print(SENSOR1_RECORD, 0);
-  lcd.print("%");
-  
-     if(SENSOR2_ALERT){
-      lcd.print(" Oil Low!");
-     }else{
-       lcd.print("  Oil Ok");
-     }
-    lcd.print("     ");
+  lcd.print("/");
+  lcd.print(SENSOR1_ALARM);
+  lcd.print("%");  
+
+  lcd.print("     ");
 
   lcd.setCursor(0,1);
 
@@ -338,23 +349,33 @@ if(DEBUG_MODE == 0){
   
 }else{
   
-  if(DEBUG_MODE == 1){
-      
-      lcd.print(SENSOR1_VOLTAGE, 3); 
-      lcd.print("v ");
-      
-      lcd.print(SENSOR1_ALARM); 
-      lcd.print("%");
+  if(DEBUG_MODE == 1){      
+
+     lcd.print("Oil: "); 
      
-      lcd.print("     ");
+     if(SENSOR2_ALERT){
+        lcd.print("LOW! ");
+     }else{
+         lcd.print("OK ");
+     }
+     
+     //lcd.print(SENSOR1_VOLTAGE, 3); 
+     //lcd.print("v ");
+     
+     lcd.print("Alt: ");
+     lcd.print(BARO_ALT);
+     lcd.print("m ");
+     
+     
+    lcd.print("     "); 
   
-  }else if(DEBUG_MODE == 2){  
+  }else if(DEBUG_MODE == 2){
     
       lcd.print(SENSOR2_VOLTAGE, 3); 
       lcd.print("v "); 
       
       lcd.print(SENSOR3_VOLTAGE, 3); 
-      lcd.print("v ");   
+      lcd.print("v ");
       
       lcd.print("     ");
       
