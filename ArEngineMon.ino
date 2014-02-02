@@ -199,7 +199,7 @@ void read_stats(){
   if(SENSOR1_PERCENT > SENSOR1_RECORD && millis() > STARTUP_DELAY)SENSOR1_RECORD = SENSOR1_PERCENT;//store highest reading, after 5 sec startup delay
 //SENSOR1
 
-/*
+
 //SENSOR2
   // read the input on analog pin
   SENSOR2 = analogRead(SENSOR2_PIN);
@@ -216,7 +216,7 @@ void read_stats(){
   // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
   SENSOR3_VOLTAGE = SENSOR3 * (5.0 / 1023.0);
 //SENSOR3
- */
+ 
  
   BARO_ALT = bmp.readAltitude();
  
@@ -233,8 +233,8 @@ void check_stats(){
   if(SENSOR1_PERCENT >= SENSOR1_ALARM)SENSOR1_ALERT = true;
   else  SENSOR1_ALERT = false;
   
- // if(SENSOR2_VOLTAGE < SENSOR2_ALARM)SENSOR2_ALERT = true;
- // else  SENSOR2_ALERT = false;
+  if(SENSOR2_VOLTAGE < SENSOR2_ALARM)SENSOR2_ALERT = true;
+  else  SENSOR2_ALERT = false;
 
   if(SENSOR1_ALERT || SENSOR2_ALERT){
     led(ON);
@@ -351,10 +351,10 @@ if(DEBUG_MODE == 0){
   
   if(DEBUG_MODE == 1){      
 
-     lcd.print("Oil: "); 
+     lcd.print("Oil:"); 
      
      if(SENSOR2_ALERT){
-        lcd.print("LOW! ");
+        lcd.print("LOW ");
      }else{
          lcd.print("OK ");
      }
@@ -362,7 +362,7 @@ if(DEBUG_MODE == 0){
      //lcd.print(SENSOR1_VOLTAGE, 3); 
      //lcd.print("v ");
      
-     lcd.print("Alt: ");
+     lcd.print("Alt:");
      lcd.print(BARO_ALT);
      lcd.print("m ");
      
