@@ -8,7 +8,7 @@ version 2 as published by the Free Software Foundation.
 */
 
 
-const int Version = 104;//change to force load default settings and save them to eeprom
+const int Version = 105;//change to force load default settings and save them to eeprom
 
 #include <LCD.h>
 #include <LiquidCrystal.h>
@@ -34,14 +34,14 @@ int LED_ON = 200;
 int LED_OFF = 100;
 
 const int BUZZER_PIN = 6;
-int BUZZER_ON = 60;//millis on for
-int BUZZER_OFF= 2000;//millis off for
+int BUZZER_ON = 100;//millis on for
+int BUZZER_OFF= 1000;//millis off for
 
 int STARTUP_DELAY = 5000; //delay before record max or check for alert
 
 const int SENSOR1_PIN = A0;
 int SENSOR1;//raw reading
-float SENSOR1_LOW = 2.2;
+float SENSOR1_LOW = 2.5;
 float SENSOR1_HIGH = 0;
 int SENSOR1_ALARM = 90;
 double SENSOR1_RECORD = 0;
@@ -75,12 +75,6 @@ menwiz menu;
 // create lcd obj using LiquidCrystal lib
 LiquidCrystal lcd ( 12, 11, 10, 9, 8, 7 );
 
-byte p1[8] = {  0x10,  0x10,  0x10,  0x10,  0x10,  0x10,  0x10,  0x10};
-byte p2[8] = {  0x18,  0x18,  0x18,  0x18,  0x18,  0x18,  0x18,  0x18};
-byte p3[8] = {  0x1C,  0x1C,  0x1C,  0x1C,  0x1C,  0x1C,  0x1C,  0x1C};
-byte p4[8] = {  0x1E,  0x1E,  0x1E,  0x1E,  0x1E,  0x1E,  0x1E,  0x1E};
-byte p5[8] = {  0x1F,  0x1F,  0x1F,  0x1F,  0x1F,  0x1F,  0x1F,  0x1F};
-byte c1[8] = { B10000, B10010, B10010, B00010, B00010, B10000, B10010, B10000 };
 
 void setup(){
 
@@ -96,8 +90,7 @@ void setup(){
   pinMode(LED_PIN, OUTPUT);
   
   pinMode(BUZZER_PIN, OUTPUT);
-  digitalWrite(BUZZER_PIN, HIGH);
-
+  tone(BUZZER_PIN, 4000, BUZZER_ON);
   
   pinMode(SENSOR1_PIN, INPUT);           // set pin to input
   pinMode(SENSOR2_PIN, INPUT);           // set pin to input
@@ -135,14 +128,6 @@ void setup(){
  // menu.addSplash( splash, SPLASH_TIMEOUT);
 
   menu.addUsrScreen(show_stats, HOME_TIMEOUT);
-
-
-  lcd.createChar(0, p1);
-  lcd.createChar(1, p2);
-  lcd.createChar(2, p3);
-  lcd.createChar(3, p4);
-  lcd.createChar(4, p5);
-  lcd.createChar(5, c1);
 
   
   int flashedVersion = EEPROM.read(1023);//last eeprom address on nano
@@ -280,77 +265,6 @@ if(DEBUG_MODE == 0){
 
   // drawing black rectangles on LCD
   
-  unsigned char b;
-  unsigned int piece;
-  
-  double a = lcdNumCols / 100 * SENSOR1_PERCENT;
-
-  if (a >= 1) {
-
-    for (int i=1;i<a;i++) {
-
-      lcd.write(4);
-
-      b=i;
-    }
-
-    a=a-b;
-
-  }
-
-
-  piece=a*5;
-
-  //lcd.print(piece); 
-
-  // drawing charater's colums
-
-  switch (piece) {
-
-  case 0:
-    break;
-
-  case 1:
-    lcd.print((char)0);
-    break;
-
-  case 2:
-    lcd.print((char)1);
-    break;
-
-  case 3:
-    lcd.print((char)2);
-    break;
-
-  case 4:
-    lcd.print((char)3);
-    break;
-
-  case 5:
-    lcd.print((char)4);
-    break;
-
-  }
-     
-  int alarmMarker = lcdNumCols / 100 * SENSOR1_ALARM;
-
-  //piece = part block
-  //b = whole blocks
-
-  int pos = b;
-  if(piece != 0)pos = b + 1;
-  
-  for (int i =0;i<(lcdNumCols-b);i++) {
-    
-    if((pos + i) == alarmMarker)lcd.print((char)5);
-    else lcd.print(" ");
-    
-  }
-  
-}else{
-  
-  if(DEBUG_MODE == 1){      
-
      lcd.print("Oil:"); 
      
      if(SENSOR2_ALERT){
@@ -358,9 +272,20 @@ if(DEBUG_MODE == 0){
      }else{
          lcd.print("OK ");
      }
+
      
-     //lcd.print(SENSOR1_VOLTAGE, 3); 
-     //lcd.print("v ");
+     lcd.print("Alt:");
+     lcd.print(BARO_ALT);
+     lcd.print("m ");
+     
+  
+}else{
+  
+  if(DEBUG_MODE == 1){ 
+
+     
+     lcd.print(SENSOR1_VOLTAGE, 3); 
+     lcd.print("v ");
      
      lcd.print("Alt:");
      lcd.print(BARO_ALT);
@@ -391,17 +316,17 @@ unsigned long buzzerTimer;
 void buzzer(boolean on){
   
   if(!on){
-      digitalWrite(BUZZER_PIN, HIGH);
+      noTone(BUZZER_PIN);
       buzzerStatus = OFF;
       buzzerTimer = 0;
   }
   else if(on && !buzzerStatus && buzzerTimer == 0){//turn buzzer on
-      digitalWrite(BUZZER_PIN, LOW);
+      tone(BUZZER_PIN, 4000);
       buzzerTimer = millis();
       buzzerStatus = ON;
   }
   else if(buzzerStatus && (millis() - buzzerTimer) > BUZZER_ON){//turn buzzer off and pause
-      digitalWrite(BUZZER_PIN, HIGH);
+      noTone(BUZZER_PIN);
       buzzerStatus = OFF;
       buzzerTimer = millis();
   }
