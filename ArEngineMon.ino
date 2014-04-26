@@ -1,3 +1,4 @@
+
 /*
 Copyright (C) 2013 Hayden Thring www.httech.com.au
 
@@ -7,19 +8,15 @@ version 2 as published by the Free Software Foundation.
 
 */
 
-
 const int Version = 105;//change to force load default settings and save them to eeprom
 
 #include <LCD.h>
 #include <LiquidCrystal.h>
-#include <buttons.h>
+//#include <buttons.h>
 #include <MENWIZ.h>
 #include <RunningAverage.h>
 #include <EEPROM.h>
-#include <Wire.h>
-#include <Adafruit_BMP085.h>
-
-Adafruit_BMP085 bmp;
+#include <Button.h>
 
 const int UP_BOTTON_PIN      = 3;
 const int DOWN_BOTTON_PIN    = 4;
@@ -28,10 +25,16 @@ const int ESCAPE_BOTTON_PIN  = 5;
 
 const int HOME_TIMEOUT  = 4000;
 const int SPLASH_TIMEOUT  = 5000;
+const int LCD_TIMEOUT  = HOME_TIMEOUT + 10000; //timeout for lcd backlight 
 
 const int LED_PIN = 13;
 int LED_ON = 200;
 int LED_OFF = 100;
+
+const int LCD_PIN = A4;
+
+boolean SLEEP = false;
+unsigned long LAST_BUTTON_TIME;
 
 const int BUZZER_PIN = 6;
 int BUZZER_ON = 100;//millis on for
@@ -58,11 +61,9 @@ boolean SENSOR2_ALERT = false;
 
 const int SENSOR3_PIN = A6;
 int SENSOR3;//raw reading
-int SENSOR3_ALARM = 90;
+int SENSOR3_ALARM = 1.00;
 float SENSOR3_VOLTAGE;
 boolean SENSOR3_ALERT = false;
-
-int BARO_ALT;
 
 const int SENSOR_INTERVAL = 1000;//delay between sensor reads
 
@@ -75,22 +76,71 @@ menwiz menu;
 // create lcd obj using LiquidCrystal lib
 LiquidCrystal lcd ( 12, 11, 10, 9, 8, 7 );
 
+Button confirm = Button(CONFIRM_BOTTON_PIN, BUTTON_PULLUP_INTERNAL);
+Button escape = Button(ESCAPE_BOTTON_PIN, BUTTON_PULLUP_INTERNAL);
+Button up = Button(UP_BOTTON_PIN, BUTTON_PULLUP_INTERNAL);
+Button down = Button(DOWN_BOTTON_PIN, BUTTON_PULLUP_INTERNAL);
+
+int button_nav(){
+  
+if(confirm.uniquePress()){
+  LAST_BUTTON_TIME = millis();
+  if(SLEEP){
+    SLEEP = false;
+    return MW_BTNULL;
+  }
+  else return MW_BTC;
+}
+else if(escape.uniquePress()){
+  LAST_BUTTON_TIME = millis();
+  if(SLEEP){
+    SLEEP = false;
+    return MW_BTNULL;
+  }
+  else return MW_BTE;
+}
+else if(up.uniquePress()){
+  LAST_BUTTON_TIME = millis();
+  if(SLEEP){
+    SLEEP = false;
+    return MW_BTNULL;
+  }
+  else return MW_BTU;
+}
+else if(down.uniquePress()){
+  LAST_BUTTON_TIME = millis();
+  if(SLEEP){
+    SLEEP = false;
+    return MW_BTNULL;
+  }
+  else return MW_BTD;
+}
+else{
+    if(millis() - LAST_BUTTON_TIME > LCD_TIMEOUT){
+      SLEEP = true;      
+    }    
+    return MW_BTNULL;
+}
+  
+}
 
 void setup(){
 
   Serial.begin(9600);
-  //Serial.println(sensorValue);
-  
-  bmp.begin();
+  Serial.println("Engine Monitor Starting...");
   
   _menu *r,*s1,*s2;
 
   int  mem;
 
   pinMode(LED_PIN, OUTPUT);
+  pinMode(LCD_PIN, OUTPUT);
+  digitalWrite(LCD_PIN, HIGH);
   
   pinMode(BUZZER_PIN, OUTPUT);
-  tone(BUZZER_PIN, 4000, BUZZER_ON);
+  tone(BUZZER_PIN, 4000, 100);
+  delay(150);
+  tone(BUZZER_PIN, 4000, 100);
   
   pinMode(SENSOR1_PIN, INPUT);           // set pin to input
   pinMode(SENSOR2_PIN, INPUT);           // set pin to input
@@ -118,11 +168,9 @@ void setup(){
         s1->addItem(MW_LIST, F("Sensor 2 & 3"));
       
    s1=menu.addMenu(MW_VAR,r,F("Save"));
-      s1->addVar(MW_ACTION,save);      
-      
+      s1->addVar(MW_ACTION,save);  
 
-  menu.navButtons(UP_BOTTON_PIN,DOWN_BOTTON_PIN,ESCAPE_BOTTON_PIN,CONFIRM_BOTTON_PIN);  
-  
+  menu.addUsrNav(button_nav, 4);    
 
  // char splash[] = "test \n hello \n";
  // menu.addSplash( splash, SPLASH_TIMEOUT);
@@ -141,15 +189,11 @@ void setup(){
 
 }
 
-void loop(){
+void loop(){  
   
   read_stats();
-  check_stats();
+  check_stats(); 
   menu.draw();
-  
-  
-  //Serial.println(SENSOR1_VOLTAGE, 3);
-  //Serial.println(SENSOR1);
 }
 
 unsigned long lastRead = 0;
@@ -203,9 +247,6 @@ void read_stats(){
 //SENSOR3
  
  
-  BARO_ALT = bmp.readAltitude();
- 
- 
   lastRead = millis();
 
 }
@@ -220,16 +261,22 @@ void check_stats(){
   
   if(SENSOR2_VOLTAGE < SENSOR2_ALARM)SENSOR2_ALERT = true;
   else  SENSOR2_ALERT = false;
+  
+  if(SENSOR3_VOLTAGE < SENSOR3_ALARM);//SENSOR3_ALERT = true;
+  else  SENSOR3_ALERT = false;
 
-  if(SENSOR1_ALERT || SENSOR2_ALERT){
-    led(ON);
-    buzzer(ON);
+  if(SENSOR1_ALERT || SENSOR2_ALERT || SENSOR3_ALERT){
+    led(true);
+    buzzer(true);
+    SLEEP = false;
   }
   else{
-    led(OFF);
-    buzzer(OFF);
-  }
-
+    led(false);
+    buzzer(false);
+  }  
+  
+  if(SLEEP)digitalWrite(LCD_PIN, LOW);
+  else digitalWrite(LCD_PIN, HIGH);  
 
 }
 
@@ -263,7 +310,6 @@ void show_stats(){
 
 if(DEBUG_MODE == 0){
 
-  // drawing black rectangles on LCD
   
      lcd.print("Oil:"); 
      
@@ -273,33 +319,34 @@ if(DEBUG_MODE == 0){
          lcd.print("OK ");
      }
 
-     
-     lcd.print("Alt:");
-     lcd.print(BARO_ALT);
-     lcd.print("m ");
+     lcd.print("Rad: ");      
+
+     if(SENSOR3_ALERT){
+        lcd.print("LOW ");
+     }else{
+         lcd.print("OK ");
+     }
+
      
   
 }else{
   
   if(DEBUG_MODE == 1){ 
 
-     
+     lcd.print("1: "); 
      lcd.print(SENSOR1_VOLTAGE, 3); 
-     lcd.print("v ");
+     lcd.print("v ");  
      
-     lcd.print("Alt:");
-     lcd.print(BARO_ALT);
-     lcd.print("m ");
-     
-     
-    lcd.print("     "); 
+     lcd.print("     "); 
   
   }else if(DEBUG_MODE == 2){
     
-      lcd.print(SENSOR2_VOLTAGE, 3); 
+      lcd.print("2:"); 
+      lcd.print(SENSOR2_VOLTAGE, 2); 
       lcd.print("v "); 
       
-      lcd.print(SENSOR3_VOLTAGE, 3); 
+      lcd.print("3:");
+      lcd.print(SENSOR3_VOLTAGE, 2); 
       lcd.print("v ");
       
       lcd.print("     ");
@@ -310,24 +357,24 @@ if(DEBUG_MODE == 0){
   
 }
 
-boolean buzzerStatus = OFF;
+boolean buzzerStatus = false;
 unsigned long buzzerTimer;
 
 void buzzer(boolean on){
   
   if(!on){
       noTone(BUZZER_PIN);
-      buzzerStatus = OFF;
+      buzzerStatus = false;
       buzzerTimer = 0;
   }
   else if(on && !buzzerStatus && buzzerTimer == 0){//turn buzzer on
       tone(BUZZER_PIN, 4000);
       buzzerTimer = millis();
-      buzzerStatus = ON;
+      buzzerStatus = true;
   }
   else if(buzzerStatus && (millis() - buzzerTimer) > BUZZER_ON){//turn buzzer off and pause
       noTone(BUZZER_PIN);
-      buzzerStatus = OFF;
+      buzzerStatus = false;
       buzzerTimer = millis();
   }
   else if(!buzzerStatus && (millis() - buzzerTimer) > BUZZER_OFF){//reset buzzer
@@ -336,24 +383,24 @@ void buzzer(boolean on){
 
 }
 
-boolean ledStatus = OFF;
+boolean ledStatus = false;
 unsigned long ledTimer;
 
 void led(boolean on){
   
   if(!on){
       digitalWrite(LED_PIN, LOW);
-      ledStatus = OFF;
+      ledStatus = false;
       ledTimer = 0;
   }
   else if(on && !ledStatus && ledTimer == 0){//turn buzzer on
       digitalWrite(LED_PIN, HIGH);
       ledTimer = millis();
-      ledStatus = ON;
+      ledStatus = true;
   }
   else if(ledStatus && (millis() - ledTimer) > LED_ON){//turn buzzer off and pause
       digitalWrite(LED_PIN, LOW);
-      ledStatus = OFF;
+      ledStatus = false;
       ledTimer = millis();
   }
   else if(!ledStatus && (millis() - ledTimer) > LED_OFF){//reset buzzer
@@ -361,7 +408,10 @@ void led(boolean on){
   }
 
 }
-
 void save(){
   menu.writeEeprom();
 }
+
+
+
+
