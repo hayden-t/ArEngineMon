@@ -8,6 +8,8 @@ version 2 as published by the Free Software Foundation.
 
 */
 
+boolean disable_buzzer = false;//usefull for development
+
 const int Version = 105;//change to force load default settings and save them to eeprom
 
 #include <LCD.h>
@@ -25,7 +27,7 @@ const int ESCAPE_BOTTON_PIN  = 5;
 
 const int HOME_TIMEOUT  = 4000;
 const int SPLASH_TIMEOUT  = 5000;
-const int LCD_TIMEOUT  = HOME_TIMEOUT + 10000; //timeout for lcd backlight 
+const int LCD_TIMEOUT  = HOME_TIMEOUT + 10000; //timeout for lcd backlight
 
 const int LED_PIN = 13;
 int LED_ON = 200;
@@ -262,13 +264,14 @@ void check_stats(){
   if(SENSOR2_VOLTAGE < SENSOR2_ALARM)SENSOR2_ALERT = true;
   else  SENSOR2_ALERT = false;
   
-  if(SENSOR3_VOLTAGE < SENSOR3_ALARM);//SENSOR3_ALERT = true;
+  if(SENSOR3_VOLTAGE < SENSOR3_ALARM)SENSOR3_ALERT = true;
   else  SENSOR3_ALERT = false;
 
   if(SENSOR1_ALERT || SENSOR2_ALERT || SENSOR3_ALERT){
     led(true);
     buzzer(true);
     SLEEP = false;
+    LAST_BUTTON_TIME = millis();
   }
   else{
     led(false);
@@ -361,6 +364,8 @@ boolean buzzerStatus = false;
 unsigned long buzzerTimer;
 
 void buzzer(boolean on){
+  
+  if(disable_buzzer)return;  
   
   if(!on){
       noTone(BUZZER_PIN);
