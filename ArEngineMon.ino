@@ -14,6 +14,8 @@ version 2 as published by the Free Software Foundation.
 
 const int Version = 106;//change to force load default settings and save them to eeprom
 
+char splash[] = " ARDUINO ENGINE\nMONITOR STARTING\n";
+
 #include <LCD.h>
 #include <LiquidCrystal.h>
 //#include <buttons.h>
@@ -46,7 +48,7 @@ int BUZZER_OFF= 1000;//millis off for
 
 int STARTUP_DELAY = 5000; //delay before record max or check for alert
 
-
+//coolant temp
     const int SENSOR1_PIN = A0;
     int SENSOR1;//raw reading
     float SENSOR1_LOW = 2.5;
@@ -56,10 +58,11 @@ int STARTUP_DELAY = 5000; //delay before record max or check for alert
     float SENSOR1_VOLTAGE;
     int SENSOR1_PERCENT;
     boolean SENSOR1_ALERT = false;
-    RunningAverage SENSOR1_AVERAGE(10);
-    
-    
-    const int SENSOR2_PIN = A7;
+    RunningAverage SENSOR1_AVERAGE(1);
+//coolant temp
+ 
+//oil pressure
+    const int SENSOR2_PIN = A5;
     int SENSOR2;//raw reading
     float SENSOR2_VOLTAGE;
     boolean SENSOR2_ALERT = false;
@@ -72,17 +75,19 @@ int STARTUP_DELAY = 5000; //delay before record max or check for alert
     #else
     double SENSOR2_ALARM = 1.00;
     #endif
-    
-    
+//oil pressure    
+ 
+//coolant float    
     const int SENSOR3_PIN = A6;
     int SENSOR3;//raw reading
     int SENSOR3_ALARM = 1.00;
     float SENSOR3_VOLTAGE;
     boolean SENSOR3_ALERT = false;
+//coolant float    
 
 const int SENSOR_INTERVAL = 1000;//delay between sensor reads
 
-int DEBUG_MODE = 0;//show raw sensor values instead of graph
+int DEBUG_MODE = 0;//show voltages
 
 const int lcdNumCols = 16; //why does this need to be a double ?
 const int lcdNumRows = 2;
@@ -157,53 +162,45 @@ void setup(){
       pinMode(BUZZER_PIN, OUTPUT);
       tone(BUZZER_PIN, 4000, 100);
       delay(150);
-      tone(BUZZER_PIN, 4000, 100);
-      
-      pinMode(SENSOR1_PIN, INPUT);           // set pin to input
-      pinMode(SENSOR2_PIN, INPUT);           // set pin to input
-      pinMode(SENSOR3_PIN, INPUT);           // set pin to input
+      tone(BUZZER_PIN, 4000, 100);    
       
       menu.begin(&lcd,lcdNumCols,lcdNumRows); //declare lcd object and screen size to menwiz lib
     
-      r=menu.addMenu(MW_ROOT,NULL,F("Settings"));
+      r=menu.addMenu(MW_ROOT,NULL,F("MENU"));
         
-      s1=menu.addMenu(MW_SUBMENU,r, F("ECT Sensor"));    
-          s2=menu.addMenu(MW_VAR,s1,F("ECT Alarm %"));
+      s1=menu.addMenu(MW_SUBMENU,r, F("TEMP SENSOR"));    
+          s2=menu.addMenu(MW_VAR,s1,F("TEMP ALARM %"));
               s2->addVar(MW_AUTO_INT,&SENSOR1_ALARM,0,99,1);
-          s2=menu.addMenu(MW_VAR,s1,F("ECT Low V"));
+          s2=menu.addMenu(MW_VAR,s1,F("TEMP LOW V"));
               s2->addVar(MW_AUTO_FLOAT,&SENSOR1_LOW,0,5,0.1);
-          s2=menu.addMenu(MW_VAR,s1,F("ECT High V"));
+          s2=menu.addMenu(MW_VAR,s1,F("TEMP HIGH V"));
               s2->addVar(MW_AUTO_FLOAT,&SENSOR1_HIGH,0,5,0.1);
        
      #ifdef OIL_PRESSURE_SENDER
-      s1=menu.addMenu(MW_SUBMENU,r, F("Oil Sensor"));    
-          s2=menu.addMenu(MW_VAR,s1,F("Oil Alarm %"));
+      s1=menu.addMenu(MW_SUBMENU,r, F("OIL SENSOR"));    
+          s2=menu.addMenu(MW_VAR,s1,F("OIL ALARM %"));
               s2->addVar(MW_AUTO_INT,&SENSOR2_ALARM,0,99,1);
-          s2=menu.addMenu(MW_VAR,s1,F("Oil Low V"));
+          s2=menu.addMenu(MW_VAR,s1,F("OIL LOW V"));
               s2->addVar(MW_AUTO_FLOAT,&SENSOR2_LOW,0,5,0.1);
-          s2=menu.addMenu(MW_VAR,s1,F("Oil High V"));
+          s2=menu.addMenu(MW_VAR,s1,F("OIL HIGH V"));
               s2->addVar(MW_AUTO_FLOAT,&SENSOR2_HIGH,0,5,0.1);     
      #endif
               
-      s1=menu.addMenu(MW_VAR,r, F("Buzzer Duty"));    
+      s1=menu.addMenu(MW_VAR,r, F("BUZZER DUTY"));    
           s1->addVar(MW_AUTO_INT,&BUZZER_ON,20,1000,20);
       
-      s1=menu.addMenu(MW_VAR,r,F("Show Volts"));              
+      s1=menu.addMenu(MW_VAR,r,F("VOLT DISPLAY"));              
             s1->addVar(MW_LIST,&DEBUG_MODE); 
-            s1->addItem(MW_LIST, F("Off"));
-            s1->addItem(MW_LIST, F("Coolant"));
-            s1->addItem(MW_LIST, F("Oil"));
+            s1->addItem(MW_LIST, F("OFF"));
+            s1->addItem(MW_LIST, F("COOLANT"));
+            s1->addItem(MW_LIST, F("OIL"));
           
-       s1=menu.addMenu(MW_VAR,r,F("Save"));
-          s1->addVar(MW_ACTION,save);  
+       s1=menu.addMenu(MW_VAR,r,F("SAVE SETTINGS"));
+          s1->addVar(MW_ACTION,save);
     
-      menu.addUsrNav(button_nav, 4);    
-    
-     // char splash[] = "test \n hello \n";
-     // menu.addSplash( splash, SPLASH_TIMEOUT);
-    
+      menu.addUsrNav(button_nav, 4);
+      menu.addSplash(splash, SPLASH_TIMEOUT);
       menu.addUsrScreen(show_stats, HOME_TIMEOUT);
-    
       
       int flashedVersion = EEPROM.read(1023);//last eeprom address on nano
       
@@ -262,7 +259,7 @@ void read_stats(){
     #ifdef OIL_PRESSURE_SENDER  
      if(SENSOR2_HIGH > SENSOR2_LOW){
        SENSOR2_PERCENT = map(SENSOR2_VOLTAGE*10000, SENSOR2_LOW*10000, SENSOR2_HIGH*10000, 0, 99);
-     else SENSOR2_PERCENT = 0;
+     }else SENSOR2_PERCENT = 0;
        
        SENSOR2_PERCENT = constrain(SENSOR2_PERCENT, 0, 99);//limit graph to  0% - 99%
        if(SENSOR2_PERCENT > SENSOR2_RECORD && millis() > STARTUP_DELAY)SENSOR2_RECORD = SENSOR2_PERCENT;
@@ -295,7 +292,7 @@ void check_stats(){
     if(SENSOR2_VOLTAGE < SENSOR2_ALARM)SENSOR2_ALERT = true;
     else  SENSOR2_ALERT = false;
   #else
-    if(SENSOR2_PERCENT <= SENSOR2_ALARM)SENSOR2_ALERT = true;
+    if(SENSOR2_PERCENT <= SENSOR2_ALARM || SENSOR2_PERCENT == 99)SENSOR2_ALERT = true;//99 = disconnected
     else  SENSOR2_ALERT = false;
   #endif
     
@@ -359,8 +356,7 @@ void check_stats(){
           lcd.print("LOW ");
        }else{
            lcd.print("OK ");
-       }
-       
+       }       
     
   }else{
     
@@ -378,15 +374,12 @@ void check_stats(){
       
         lcd.print("2:"); 
         lcd.print(SENSOR2_VOLTAGE, 2); 
-        lcd.print("v ");      
-  
+        lcd.print("v ");  
         
         lcd.print("     ");
         
-    }
-    
-  }
-    
+    }    
+  }    
 }
   
   boolean buzzerStatus = false;
@@ -447,7 +440,3 @@ void led(boolean on){
 void save(){
   menu.writeEeprom();
 }
-
-
-
-
