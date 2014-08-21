@@ -8,6 +8,8 @@ version 2 as published by the Free Software Foundation.
 
 */
 
+// must edit MENWIZ.h to make:  #define MAX_OPTXMENU   	7
+
 #define DISABLE_BUZZER
 
 #define OIL_PRESSURE_SENDER //disable your simple on/off oil pressure switch
@@ -29,15 +31,15 @@ const int DOWN_BOTTON_PIN    = 4;
 const int CONFIRM_BOTTON_PIN = 2;
 const int ESCAPE_BOTTON_PIN  = 5;
 
-const int HOME_TIMEOUT  = 4000;
-const int SPLASH_TIMEOUT  = 5000;
-const int LCD_TIMEOUT  = HOME_TIMEOUT + 10000; //timeout for lcd backlight
+int MENU_TIMEOUT  = 4;
+int SPLASH_TIMEOUT  = 5;
+int LCD_TIMEOUT  = 10; //timeout for lcd backlight
 
 const int LED_PIN = 13;
 int LED_ON = 200;
 int LED_OFF = 100;
 
-const int LCD_PIN = A4;
+const int LCD_PIN = A4;//backlight
 
 boolean SLEEP = false;
 unsigned long LAST_BUTTON_TIME;
@@ -53,12 +55,12 @@ int STARTUP_DELAY = 5000; //delay before record max or check for alert
     int SENSOR1;//raw reading
     float SENSOR1_LOW = 2.5;
     float SENSOR1_HIGH = 0;
-    int SENSOR1_ALARM = 90;
+    int SENSOR1_ALARM = 80;
     int SENSOR1_RECORD = 0;
     float SENSOR1_VOLTAGE;
     int SENSOR1_PERCENT;
     boolean SENSOR1_ALERT = false;
-    RunningAverage SENSOR1_AVERAGE(1);
+    RunningAverage SENSOR1_AVERAGE(20);
 //coolant temp
  
 //oil pressure
@@ -68,10 +70,11 @@ int STARTUP_DELAY = 5000; //delay before record max or check for alert
     boolean SENSOR2_ALERT = false;
     #ifdef OIL_PRESSURE_SENDER 
     int SENSOR2_RECORD = 0;
-    float SENSOR2_LOW = 0;
-    float SENSOR2_HIGH = 5;
+    float SENSOR2_LOW = 0.5;
+    float SENSOR2_HIGH = 3;
     int  SENSOR2_PERCENT;
-    int SENSOR2_ALARM = 90;
+    int SENSOR2_ALARM = 30;
+    RunningAverage SENSOR2_AVERAGE(10);
     #else
     double SENSOR2_ALARM = 1.00;
     #endif
@@ -85,7 +88,7 @@ int STARTUP_DELAY = 5000; //delay before record max or check for alert
     boolean SENSOR3_ALERT = false;
 //coolant float    
 
-const int SENSOR_INTERVAL = 1000;//delay between sensor reads
+const int SENSOR_INTERVAL = 500;//delay between sensor reads
 
 int DEBUG_MODE = 0;//show voltages
 
@@ -96,10 +99,10 @@ menwiz menu;
 // create lcd obj using LiquidCrystal lib
 LiquidCrystal lcd ( 12, 11, 10, 9, 8, 7 );
 
-Button confirm = Button(CONFIRM_BOTTON_PIN, BUTTON_PULLUP_INTERNAL);
-Button escape = Button(ESCAPE_BOTTON_PIN, BUTTON_PULLUP_INTERNAL);
-Button up = Button(UP_BOTTON_PIN, BUTTON_PULLUP_INTERNAL);
-Button down = Button(DOWN_BOTTON_PIN, BUTTON_PULLUP_INTERNAL);
+Button confirm = Button(CONFIRM_BOTTON_PIN, BUTTON_PULLUP_INTERNAL, true, 100);
+Button escape = Button(ESCAPE_BOTTON_PIN, BUTTON_PULLUP_INTERNAL, true, 100);
+Button up = Button(UP_BOTTON_PIN, BUTTON_PULLUP_INTERNAL, true, 100);
+Button down = Button(DOWN_BOTTON_PIN, BUTTON_PULLUP_INTERNAL, true, 100);
 
 char line[lcdNumCols];
 
@@ -138,7 +141,7 @@ else if(down.uniquePress()){
   else return MW_BTD;
 }
 else{
-    if(millis() - LAST_BUTTON_TIME > LCD_TIMEOUT){
+    if(millis() - LAST_BUTTON_TIME > ((LCD_TIMEOUT+MENU_TIMEOUT)*1000)){
       SLEEP = true;      
     }    
     return MW_BTNULL;
@@ -168,40 +171,46 @@ void setup(){
     
       r=menu.addMenu(MW_ROOT,NULL,F("MENU"));
         
-      s1=menu.addMenu(MW_SUBMENU,r, F("TEMP SENSOR"));    
-          s2=menu.addMenu(MW_VAR,s1,F("TEMP ALARM %"));
+      s1=menu.addMenu(MW_SUBMENU,r, F("TEMPERATURE"));    
+          s2=menu.addMenu(MW_VAR,s1,F("ALARM PERCENT"));
               s2->addVar(MW_AUTO_INT,&SENSOR1_ALARM,0,99,1);
-          s2=menu.addMenu(MW_VAR,s1,F("TEMP LOW V"));
+          s2=menu.addMenu(MW_VAR,s1,F("LOW VOLTAGE"));
               s2->addVar(MW_AUTO_FLOAT,&SENSOR1_LOW,0,5,0.1);
-          s2=menu.addMenu(MW_VAR,s1,F("TEMP HIGH V"));
+          s2=menu.addMenu(MW_VAR,s1,F("HIGH VOLTAGE"));
               s2->addVar(MW_AUTO_FLOAT,&SENSOR1_HIGH,0,5,0.1);
        
      #ifdef OIL_PRESSURE_SENDER
-      s1=menu.addMenu(MW_SUBMENU,r, F("OIL SENSOR"));    
-          s2=menu.addMenu(MW_VAR,s1,F("OIL ALARM %"));
+      s1=menu.addMenu(MW_SUBMENU,r, F("OIL PRESSURE"));    
+          s2=menu.addMenu(MW_VAR,s1,F("ALARM PERCENT"));
               s2->addVar(MW_AUTO_INT,&SENSOR2_ALARM,0,99,1);
-          s2=menu.addMenu(MW_VAR,s1,F("OIL LOW V"));
+          s2=menu.addMenu(MW_VAR,s1,F("LOW VOLTAGE"));
               s2->addVar(MW_AUTO_FLOAT,&SENSOR2_LOW,0,5,0.1);
-          s2=menu.addMenu(MW_VAR,s1,F("OIL HIGH V"));
+          s2=menu.addMenu(MW_VAR,s1,F("HIGH VOLTAGE"));
               s2->addVar(MW_AUTO_FLOAT,&SENSOR2_HIGH,0,5,0.1);     
      #endif
-              
-      s1=menu.addMenu(MW_VAR,r, F("BUZZER DUTY"));    
-          s1->addVar(MW_AUTO_INT,&BUZZER_ON,20,1000,20);
-      
-      s1=menu.addMenu(MW_VAR,r,F("VOLT DISPLAY"));              
+     
+     s1=menu.addMenu(MW_VAR,r,F("VOLTAGES"));
             s1->addVar(MW_LIST,&DEBUG_MODE); 
             s1->addItem(MW_LIST, F("OFF"));
             s1->addItem(MW_LIST, F("COOLANT"));
             s1->addItem(MW_LIST, F("OIL"));
+              
+      s1=menu.addMenu(MW_VAR,r, F("BUZZER DUTY"));    
+          s1->addVar(MW_AUTO_INT,&BUZZER_ON,20,1000,20);
+      
+      s1=menu.addMenu(MW_VAR,r, F("LCD TIMEOUT"));    
+          s1->addVar(MW_AUTO_INT,&LCD_TIMEOUT,0,60,1);
+          
+      s1=menu.addMenu(MW_VAR,r, F("MENU TIMEOUT"));    
+          s1->addVar(MW_AUTO_INT,&MENU_TIMEOUT,0,60,1);   
           
        s1=menu.addMenu(MW_VAR,r,F("SAVE SETTINGS"));
           s1->addVar(MW_ACTION,save);
     
       menu.addUsrNav(button_nav, 4);
-      menu.addSplash(splash, SPLASH_TIMEOUT);
-      menu.addUsrScreen(show_stats, HOME_TIMEOUT);
-      
+      menu.addSplash(splash, SPLASH_TIMEOUT*1000);
+      menu.addUsrScreen(show_stats, (MENU_TIMEOUT*1000));
+    
       int flashedVersion = EEPROM.read(1023);//last eeprom address on nano
       
       if(flashedVersion == Version){
@@ -233,25 +242,24 @@ void read_stats(){
       SENSOR1 = SENSOR1_AVERAGE.getAverage();
     
       // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
-      SENSOR1_VOLTAGE = SENSOR1 * (5.0 / 1023.0); 
+      SENSOR1_VOLTAGE = SENSOR1 * (5.0 / 1023.0);     
+      
+      SENSOR1_PERCENT = map(SENSOR1_VOLTAGE*10000, SENSOR1_LOW*10000, SENSOR1_HIGH*10000, 0, 99);
     
-      if(SENSOR1_HIGH > SENSOR1_LOW){//percentage adjusted for sensor zero and relative to voltage range    
-         SENSOR1_PERCENT = map(SENSOR1_VOLTAGE*10000, SENSOR1_LOW*10000, SENSOR1_HIGH*10000, 0, 99);
-      }
-      else if(SENSOR1_HIGH < SENSOR1_LOW){//invert, ie higher voltage = lower value (5v = 0%, 0v = 100%)      
-         SENSOR1_PERCENT = map(SENSOR1_VOLTAGE*10000, SENSOR1_HIGH*10000, SENSOR1_LOW*10000, 0, 99);   
-      }
-      else SENSOR1_PERCENT = 0;
-    
-       SENSOR1_PERCENT = constrain(SENSOR1_PERCENT, 0, 99);//limit graph to  0% - 99%
+      SENSOR1_PERCENT = constrain(SENSOR1_PERCENT, 0, 99);//limit graph to  0% - 99%
       
       if(SENSOR1_PERCENT > SENSOR1_RECORD && millis() > STARTUP_DELAY)SENSOR1_RECORD = SENSOR1_PERCENT;//store highest reading, after 5 sec startup delay
 //SENSOR1
 
 
-//SENSOR2
+//SENSOR2      
       // read the input on analog pin
+  #ifndef OIL_PRESSURE_SENDER     
       SENSOR2 = analogRead(SENSOR2_PIN);
+  #else   
+      SENSOR2_AVERAGE.addValue(analogRead(SENSOR2_PIN));
+      SENSOR2 = SENSOR2_AVERAGE.getAverage();
+  #endif   
       
       // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
       SENSOR2_VOLTAGE = SENSOR2 * (5.0 / 1023.0);
